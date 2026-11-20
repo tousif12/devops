@@ -350,6 +350,81 @@ When you run a script, it starts in a **new child process**. A normal variable o
 | Shell variable | No | `SEASON="Monsoon"` |
 | Environment variable | Yes | `export SEASON="Monsoon"` |
 
+### Parent shell and child shell
+
+When you open a terminal, you get a bash program running. That's the **parent shell**. When you run a script like `./testvars.sh`, bash doesn't run it inside your terminal's shell. It starts a **new, separate bash process** to run the script, and that new process is the **child shell**. When the script finishes, the child shell closes and you're back in the parent.
+
+```
+Terminal (parent shell, PID 1000)
+   │
+   └── ./testvars.sh  →  new bash (child shell, PID 1050)
+                          runs the script, then exits
+```
+
+#### A simple analogy
+
+Think of the parent shell as a manager and the child shell as a new employee.
+
+- **Shell variable** (`SEASON="Monsoon"`): a note on the manager's private desk. The new employee can't see it.
+- **Environment variable** (`export SEASON="Monsoon"`): the manager writes the note into the official handover file that every new employee gets on day one.
+
+A child gets a copy of every exported variable when it starts. It never gets the parent's private, unexported variables.
+
+#### See it yourself
+
+Run these in your terminal:
+
+```bash
+echo $$                  # PID of your current shell, e.g. 1000
+bash                     # start a child shell by hand
+echo $$                  # different PID, e.g. 1050 (you are now in the child)
+exit                     # leave the child, back to the parent
+```
+
+Now with variables:
+
+```bash
+SEASON="Monsoon"
+bash -c 'echo "Child sees: $SEASON"'     # Child sees:          (empty)
+
+export SEASON
+bash -c 'echo "Child sees: $SEASON"'     # Child sees: Monsoon
+```
+
+`bash -c '...'` starts a child shell and runs that one command in it.
+
+#### Copying only goes one way
+
+The child gets a copy, not the original. Changes in the child never flow back to the parent:
+
+```bash
+export SEASON="Monsoon"
+bash -c 'SEASON="Winter"; echo "Child: $SEASON"'   # Child: Winter
+echo "Parent: $SEASON"                              # Parent: Monsoon
+```
+
+This is also why a script that runs `cd /tmp` doesn't change your terminal's folder after it finishes. The `cd` happened in the child.
+
+#### Running a script inside the parent
+
+If you want a script to run in your current shell, so it can see all your variables and its changes stay after it ends, use `source`:
+
+```bash
+SEASON="Monsoon"         # not exported
+source testvars.sh       # or the short form:  . testvars.sh
+# Output: The Monsoon season is more than expected, this time.
+```
+
+No child shell is created, so even unexported variables are visible. This is why you run `source ~/.bashrc` after editing it: you want the new settings in your current terminal, not in a child that closes straight away.
+
+#### Quick summary
+
+| Action | Creates a child? | Sees unexported variables? | Changes stay after? |
+|---|---|---|---|
+| `./script.sh` or `bash script.sh` | Yes | No | No |
+| `source script.sh` or `. script.sh` | No | Yes | Yes |
+| `export VAR` then `./script.sh` | Yes | Yes (gets a copy) | No |
+
 ### Making it permanent
 
 Variables disappear when you close the terminal. To keep them:
